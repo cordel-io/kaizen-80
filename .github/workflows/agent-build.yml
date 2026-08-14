@@ -1,0 +1,123 @@
+name: Agent Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to build"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: kaizen-agent-issue-${{ github.event.inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch issue body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue view ${{ github.event.inputs.issue_number }} --json body -q '.body' > /tmp/issue-body.md
+
+      - name: Create working branch
+        run: git checkout -b agent/issue-${{ github.event.inputs.issue_number }}
+
+      - name: Set up Node (for the app's own test suite)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install app dependencies
+        run: npm install
+
+      - name: Build full agent prompt
+        id: build_prompt
+        run: |
+          {
+            echo "prompt<<PROMPT_EOF"
+            cat agent/prompts/builder-agent-prompt.md
+            echo ""
+            echo "# Issue #${{ github.event.inputs.issue_number }}"
+            cat /tmp/issue-body.md
+            echo "PROMPT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run Builder Agent
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: ${{ steps.build_prompt.outputs.prompt }}
+          claude_args: >-
+            --max-turns 30
+            --allowedTools Read,Write,Edit,Bash,Grep,Glob
+            --disallowedTools "Bash(git commit:*)" "Bash(git push:*)" "Bash(gh pr:*)"
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet && git diff --staged --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: No changes — comment and stop
+        if: steps.changes.outputs.has_changes == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.inputs.issue_number }} \
+            --body "🤖 Builder Agent made no file changes this run."
+          gh issue edit ${{ github.event.inputs.issue_number }} \
+            --add-label "status:needs-human" --remove-label "status:building"
+          exit 1
+
+      - name: Commit changes
+        run: |
+          git config user.name "kaizen-80-builder-agent[bot]"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "agent: implement issue #${{ github.event.inputs.issue_number }}"
+          git push origin agent/issue-${{ github.event.inputs.issue_number }}
+
+      - name: Write PR body
+        run: |
+          {
+            echo "Closes #${{ github.event.inputs.issue_number }}"
+            echo ""
+            echo "## Builder Agent Summary"
+            echo "${{ steps.claude.outputs.result }}"
+          } > /tmp/pr-body.md
+
+      - name: Open PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --title "Agent: resolve #${{ github.event.inputs.issue_number }}" \
+            --body-file /tmp/pr-body.md \
+            --base main \
+            --head agent/issue-${{ github.event.inputs.issue_number }} \
+            --label "status:qa-review"
+
+      - name: Relabel issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.inputs.issue_number }} \
+            --add-label "status:qa-review" --remove-label "status:building"
