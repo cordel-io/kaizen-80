@@ -15,8 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  issues: write      # to relabel and comment
-  contents: read      # dispatch itself doesn't need to write code
+  issues: write       # to relabel and comment
+  contents: read       # dispatch itself doesn't need to write code
+  actions: write       # required to trigger agent-build.yml via workflow_dispatch
 
 jobs:
   dispatch:
