@@ -1,0 +1,70 @@
+name: Agent Dispatch
+
+# Fires when an issue is labeled. We filter to the specific label inside the
+# job (rather than only trusting GitHub's event filtering) so re-runs and
+# edge cases are handled explicitly and visibly in the logs.
+on:
+  issues:
+    types: [labeled]
+
+# Only one dispatch/build/qa cycle per issue at a time. If someone relabels
+# rapidly or a retry fires while a previous run is still going, the newer
+# run cancels the older one rather than letting them race.
+concurrency:
+  group: kaizen-agent-issue-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+permissions:
+  issues: write      # to relabel and comment
+  contents: read      # dispatch itself doesn't need to write code
+
+jobs:
+  dispatch:
+    if: github.event.label.name == 'agent:build'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Guard against duplicate dispatch
+        id: guard
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = context.payload.issue.labels.map(l => l.name);
+            if (labels.includes('status:building') || labels.includes('status:qa-review')) {
+              core.setFailed('Issue is already mid-flight; ignoring duplicate agent:build label event.');
+            }
+
+      - name: Relabel to status:building
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['status:building']
+            });
+
+      - name: Comment acknowledgment on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '🤖 Builder Agent dispatched. Work will appear as a PR linked to this issue shortly.'
+            });
+
+      - name: Trigger Builder Agent workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'agent-build.yml',
+              ref: 'main',
+              inputs: {
+                issue_number: String(context.issue.number)
+              }
+            });
