@@ -1,0 +1,93 @@
+name: "🤖 Agent Build Task"
+description: "A scoped, single-purpose task for the Builder Agent to execute autonomously."
+title: "[Agent]: "
+labels: ["agent:build"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Before submitting
+        This issue becomes the Builder Agent's *entire* context for the task, beyond the repo
+        itself. Keep it single-purpose. If you're describing more than one logical change,
+        split it into multiple issues.
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: One or two sentences. What should exist after this task is done that doesn't exist now?
+      placeholder: "Add streak-freeze logic so a single missed day doesn't reset a habit's streak counter."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: >
+        Concrete, checkable conditions. This is what the QA Agent will grade the PR against —
+        write these as pass/fail statements, not vague goals.
+      placeholder: |
+        - [ ] `Habit` schema includes a `freezesAvailable` count
+        - [ ] Missing a day consumes 1 freeze instead of resetting `currentStreak` to 0
+        - [ ] Unit tests cover: freeze consumed, freeze exhausted (streak resets), freeze regenerates weekly
+        - [ ] No changes to unrelated files in `src/lib/db/`
+    validations:
+      required: true
+
+  - type: textarea
+    id: target-scope
+    attributes:
+      label: Target Files / Modules
+      description: Where should the agent look and work? Be as specific as you can.
+      placeholder: |
+        Primary: src/lib/logic/streaks.ts
+        Secondary: src/lib/db/schema.ts (schema field addition only)
+        Tests: tests/unit/streaks.test.ts
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of Scope
+      description: >
+        Explicitly forbidden changes. This is your main defense against scope creep from
+        an agent that's "trying to be helpful."
+      placeholder: |
+        - Do not modify UI components
+        - Do not touch the habit-creation flow
+        - Do not add new dependencies
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Design decisions, prior art, links to related issues/PRs, edge cases to consider.
+      placeholder: "See #12 for the original streak-resiliency discussion."
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - "P0 - blocking"
+        - "P1 - normal"
+        - "P2 - nice to have"
+      default: 1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity-hint
+    attributes:
+      label: Complexity Hint
+      description: >
+        Rough sizing to set the Builder Agent's tool-call/turn budget. If unsure, guess —
+        the QA agent's retry loop is the real safety net, not this field.
+      options:
+        - "Small (single function/component, <1 turn budget tier)"
+        - "Medium (multiple files, touches tests)"
+        - "Large (cross-cutting, schema changes, consider splitting instead)"
+    validations:
+      required: true

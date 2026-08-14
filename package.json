@@ -1,0 +1,40 @@
+{
+  "name": "kaizen-80",
+  "version": "0.0.1",
+  "private": true,
+  "description": "An 80s Tokyo Cyberpunk, local-first Kaizen habit tracker — built via an issue-driven, agentic GitHub Actions workflow.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0",
+    "@sveltejs/adapter-static": "^3.0.4",
+    "@sveltejs/kit": "^2.5.0",
+    "@sveltejs/vite-plugin-svelte": "^3.1.0",
+    "@types/node": "^20.14.0",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^9.9.0",
+    "eslint-plugin-svelte": "^2.43.0",
+    "prettier": "^3.3.3",
+    "prettier-plugin-svelte": "^3.2.6",
+    "prettier-plugin-tailwindcss": "^0.6.6",
+    "svelte": "^4.2.18",
+    "svelte-check": "^3.8.5",
+    "tailwindcss": "^3.4.9",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0",
+    "vitest": "^2.0.5"
+  },
+  "dependencies": {
+    "dexie": "^4.0.8"
+  }
+}
