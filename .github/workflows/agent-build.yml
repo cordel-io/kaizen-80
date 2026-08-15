@@ -98,7 +98,7 @@ jobs:
           git add -A
           git commit -m "agent: implement issue #${{ github.event.inputs.issue_number }}"
           git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-          git push origin agent/issue-${{ github.event.inputs.issue_number }}
+          git push --force origin agent/issue-${{ github.event.inputs.issue_number }}
 
       - name: Write PR body
         run: |
