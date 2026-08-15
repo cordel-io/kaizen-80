@@ -1,0 +1,178 @@
+name: Agent QA
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number being graded"
+        required: true
+        type: string
+      pr_number:
+        description: "PR number to review"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+concurrency:
+  group: kaizen-agent-issue-${{ github.event.inputs.issue_number }}
+  cancel-in-progress: false
+
+env:
+  RETRY_BUDGET: 2
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/issue-${{ github.event.inputs.issue_number }}
+          fetch-depth: 0
+
+      - name: Fetch issue body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue view ${{ github.event.inputs.issue_number }} --json body -q '.body' > /tmp/issue-body.md
+
+      - name: Get diff against main
+        run: |
+          git fetch origin main
+          git diff origin/main...HEAD > /tmp/pr-diff.txt
+          echo "--- Files changed ---" > /tmp/files-changed.txt
+          git diff --name-only origin/main...HEAD >> /tmp/files-changed.txt
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run test suite
+        id: tests
+        continue-on-error: true
+        run: |
+          npm run test:unit > /tmp/test-output.txt 2>&1
+          echo "test_exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Run lint
+        id: lint
+        continue-on-error: true
+        run: |
+          npm run lint > /tmp/lint-output.txt 2>&1
+          echo "lint_exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Build QA prompt
+        id: build_prompt
+        run: |
+          {
+            echo "prompt<<PROMPT_EOF"
+            cat agent/prompts/qa-agent-prompt.md
+            echo ""
+            echo "# Original Issue #${{ github.event.inputs.issue_number }}"
+            cat /tmp/issue-body.md
+            echo ""
+            echo "# Files Changed"
+            cat /tmp/files-changed.txt
+            echo ""
+            echo "# Diff"
+            echo '```diff'
+            cat /tmp/pr-diff.txt
+            echo '```'
+            echo ""
+            echo "# Test Suite Output (exit code: ${{ steps.tests.outputs.test_exit_code }})"
+            echo '```'
+            cat /tmp/test-output.txt 2>/dev/null || echo "(no test output captured)"
+            echo '```'
+            echo ""
+            echo "# Lint Output (exit code: ${{ steps.lint.outputs.lint_exit_code }})"
+            echo '```'
+            cat /tmp/lint-output.txt 2>/dev/null || echo "(no lint output captured)"
+            echo '```'
+            echo "PROMPT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run QA Agent
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: "github-actions"
+          show_full_output: true
+          prompt: ${{ steps.build_prompt.outputs.prompt }}
+          claude_args: >-
+            --max-turns 15
+            --allowedTools Read,Bash,Grep,Glob
+            --disallowedTools "Bash(git commit:*)" "Bash(git push:*)" "Bash(gh pr:*)" "Bash(gh issue:*)"
+
+      - name: Parse QA verdict
+        id: verdict
+        run: |
+          echo '${{ steps.claude.outputs.result }}' > /tmp/qa-result.json
+          if ! jq empty /tmp/qa-result.json 2>/dev/null; then
+            echo "QA Agent output was not valid JSON — treating as FAIL"
+            echo "overall_verdict=FAIL" >> "$GITHUB_OUTPUT"
+            echo "summary=QA Agent produced non-JSON output; see workflow logs." >> "$GITHUB_OUTPUT"
+          else
+            VERDICT=$(jq -r '.overall_verdict // "FAIL"' /tmp/qa-result.json)
+            echo "overall_verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get current retry count
+        id: retry_count
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CURRENT=$(gh issue view ${{ github.event.inputs.issue_number }} --json labels -q '.labels[].name' | grep -oP '^qa-retry:\K[0-9]+' || echo "0")
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+
+      - name: PASS — merge PR
+        if: steps.verdict.outputs.overall_verdict == 'PASS'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ github.event.inputs.pr_number }} --squash --delete-branch
+          gh issue edit ${{ github.event.inputs.issue_number }} \
+            --add-label "status:merged" --remove-label "status:qa-review"
+          gh issue comment ${{ github.event.inputs.issue_number }} \
+            --body "✅ QA Agent approved. PR #${{ github.event.inputs.pr_number }} merged automatically."
+
+      - name: FAIL — comment and decide retry vs escalate
+        if: steps.verdict.outputs.overall_verdict == 'FAIL'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SUMMARY=$(jq -r '.summary // "QA Agent rejected this PR. See workflow logs for details."' /tmp/qa-result.json)
+          gh pr comment ${{ github.event.inputs.pr_number }} --body "## QA Agent Verdict: FAIL
+
+          $SUMMARY
+
+          Full structured result in the workflow run logs."
+
+          CURRENT=${{ steps.retry_count.outputs.current }}
+          NEXT=$((CURRENT + 1))
+
+          if [ "$NEXT" -le "$RETRY_BUDGET" ]; then
+            OLD_LABEL="qa-retry:$CURRENT"
+            gh issue edit ${{ github.event.inputs.issue_number }} --remove-label "$OLD_LABEL" 2>/dev/null || true
+            gh issue edit ${{ github.event.inputs.issue_number }} \
+              --add-label "qa-retry:$NEXT" \
+              --add-label "agent:build" \
+              --remove-label "status:qa-review"
+            gh issue comment ${{ github.event.inputs.issue_number }} \
+              --body "🔁 QA failed (attempt $CURRENT). Retrying — attempt $NEXT of $RETRY_BUDGET."
+          else
+            gh issue edit ${{ github.event.inputs.issue_number }} \
+              --add-label "status:needs-human" --remove-label "status:qa-review"
+            gh issue comment ${{ github.event.inputs.issue_number }} \
+              --body "🛑 QA failed after $RETRY_BUDGET retries. Needs human review."
+          fi
