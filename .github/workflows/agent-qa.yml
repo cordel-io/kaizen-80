@@ -117,11 +117,13 @@ jobs:
       - name: Parse QA verdict
         id: verdict
         run: |
-          echo '${{ steps.claude.outputs.result }}' > /tmp/qa-result.json
-          if ! jq empty /tmp/qa-result.json 2>/dev/null; then
-            echo "QA Agent output was not valid JSON — treating as FAIL"
+          RESULT='${{ steps.claude.outputs.result }}'
+          CLEAN=$(echo "$RESULT" | sed -e 's/^```json//' -e 's/^```//' -e 's/```$//')
+          echo "$CLEAN" > /tmp/qa-result.json
+
+          if [ -z "$CLEAN" ] || ! jq -e . /tmp/qa-result.json >/dev/null 2>&1; then
+            echo "QA Agent output missing or invalid — treating as FAIL"
             echo "overall_verdict=FAIL" >> "$GITHUB_OUTPUT"
-            echo "summary=QA Agent produced non-JSON output; see workflow logs." >> "$GITHUB_OUTPUT"
           else
             VERDICT=$(jq -r '.overall_verdict // "FAIL"' /tmp/qa-result.json)
             echo "overall_verdict=$VERDICT" >> "$GITHUB_OUTPUT"
