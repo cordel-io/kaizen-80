@@ -11,7 +11,7 @@ on:
 # rapidly or a retry fires while a previous run is still going, the newer
 # run cancels the older one rather than letting them race.
 concurrency:
-  group: kaizen-agent-issue-${{ github.event.issue.number }}
+  group: kaizen-agent-issue-${{ github.event.issue.number }}-${{ github.event.label.name }}
   cancel-in-progress: true
 
 permissions:
