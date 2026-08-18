@@ -1,13 +1,32 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { habits, getHabits, addHabit } from "$lib/stores/habits";
+  import { getDailyLog, saveDailyLog, type DailyLogDraft } from "$lib/stores/daily-log";
   import { db } from "$lib/db/schema";
   import { calculateStreak } from "$lib/logic/streaks";
   import { toggleEntry } from "$lib/logic/toggle-entry";
   import { toDateKey } from "$lib/logic/date-key";
+  import { getQuoteOfTheDay } from "$lib/content/quotes";
   import HabitCard from "$lib/components/HabitCard.svelte";
 
+  type PriorityKey = "spiritualWin" | "mentalWin" | "physicalWin";
+
   const todayKey = toDateKey(new Date());
+  const quote = getQuoteOfTheDay(todayKey);
+
+  const priorities: { key: PriorityKey; label: string; accent: string }[] = [
+    { key: "spiritualWin", label: "Spiritual Win", accent: "var(--color-neon-purple)" },
+    { key: "mentalWin", label: "Mental Win", accent: "var(--color-neon-cyan)" },
+    { key: "physicalWin", label: "Physical Win", accent: "var(--color-neon-green)" }
+  ];
+
+  let priorityValues: Record<PriorityKey, string> = {
+    spiritualWin: "",
+    mentalWin: "",
+    physicalWin: ""
+  };
+  let gratitudeItems: string[] = ["", "", ""];
+  let reflection = "";
 
   let newHabitName = "";
   let streaks: Record<number, number> = {};
@@ -16,7 +35,7 @@
 
   // No freeze-count tracking exists on the Habit record yet, so streaks are
   // calculated with zero freezes available until that's added to the schema.
-  async function refreshStats() {
+  async function refreshHabitStats() {
     const all = await getHabits();
     const nextStreaks: Record<number, number> = {};
     const nextCompletedToday: Record<number, boolean> = {};
@@ -34,9 +53,24 @@
     loading = false;
   }
 
+  async function loadDailyLog() {
+    const log = await getDailyLog(todayKey);
+    priorityValues = {
+      spiritualWin: log.spiritualWin,
+      mentalWin: log.mentalWin,
+      physicalWin: log.physicalWin
+    };
+    gratitudeItems = [...log.gratitude];
+    reflection = log.reflection;
+  }
+
+  function persistField(patch: Partial<DailyLogDraft>) {
+    void saveDailyLog(todayKey, patch);
+  }
+
   async function handleToggle(habitId: number) {
     await toggleEntry(habitId, todayKey);
-    await refreshStats();
+    await refreshHabitStats();
   }
 
   async function handleAddHabit() {
@@ -44,94 +78,247 @@
     if (!name) return;
     await addHabit(name);
     newHabitName = "";
-    await refreshStats();
+    await refreshHabitStats();
   }
 
-  onMount(refreshStats);
+  onMount(() => {
+    void refreshHabitStats();
+    void loadDailyLog();
+  });
 </script>
 
 <main class="page">
-  <h1>Kaizen-80</h1>
+  <header class="masthead">
+    <span class="wordmark">KAIZEN-80</span>
+    <p class="quote">{quote}</p>
+  </header>
 
-  <form class="add-habit-form" on:submit|preventDefault={handleAddHabit}>
-    <input type="text" placeholder="New habit..." bind:value={newHabitName} />
-    <button type="submit">Add Habit</button>
-  </form>
+  <section class="priorities">
+    {#each priorities as priority (priority.key)}
+      <div class="panel priority-box" style="--panel-accent: {priority.accent}">
+        <h2>{priority.label}</h2>
+        <input
+          type="text"
+          placeholder="Today's win..."
+          bind:value={priorityValues[priority.key]}
+          on:blur={() => persistField({ [priority.key]: priorityValues[priority.key] })}
+        />
+      </div>
+    {/each}
+  </section>
 
-  {#if loading}
-    <p class="muted">Loading...</p>
-  {:else if $habits.length === 0}
-    <p class="muted">No habits yet — add one above.</p>
-  {:else}
-    <ul class="habit-list">
-      {#each $habits as habit (habit.id)}
+  <section class="panel checklist-panel" style="--panel-accent: var(--color-neon-blue)">
+    <h2>Today's Checklist</h2>
+
+    {#if loading}
+      <p class="muted">Loading...</p>
+    {:else if $habits.length === 0}
+      <p class="muted">No habits yet — add one below.</p>
+    {:else}
+      <ul class="habit-list">
+        {#each $habits as habit (habit.id)}
+          <li>
+            <HabitCard
+              name={habit.name}
+              streak={streaks[habit.id] ?? 0}
+              completedToday={completedToday[habit.id] ?? false}
+              on:toggle={() => handleToggle(habit.id)}
+            />
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    <form class="add-habit-form" on:submit|preventDefault={handleAddHabit}>
+      <input type="text" placeholder="New habit..." bind:value={newHabitName} />
+      <button type="submit">Add</button>
+    </form>
+  </section>
+
+  <section class="panel gratitude-panel" style="--panel-accent: var(--color-neon-pink)">
+    <h2>I am grateful for...</h2>
+    <ol class="gratitude-list">
+      {#each gratitudeItems as _, i}
         <li>
-          <HabitCard
-            name={habit.name}
-            streak={streaks[habit.id] ?? 0}
-            completedToday={completedToday[habit.id] ?? false}
-            on:toggle={() => handleToggle(habit.id)}
+          <span class="gratitude-index">{i + 1}</span>
+          <input
+            type="text"
+            bind:value={gratitudeItems[i]}
+            on:blur={() => persistField({ gratitude: gratitudeItems })}
           />
         </li>
       {/each}
-    </ul>
-  {/if}
+    </ol>
+  </section>
+
+  <section class="panel reflection-panel" style="--panel-accent: var(--color-neon-yellow)">
+    <h2>Daily Reflection</h2>
+    <textarea
+      class="reflection"
+      rows="6"
+      placeholder="How did today go?"
+      bind:value={reflection}
+      on:blur={() => persistField({ reflection })}
+    ></textarea>
+  </section>
 </main>
 
 <style>
   .page {
     min-height: 100vh;
     box-sizing: border-box;
-    background: var(--color-bg-primary);
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.015) 0px,
+        rgba(255, 255, 255, 0.015) 1px,
+        transparent 1px,
+        transparent 3px
+      ),
+      var(--color-bg-primary);
     color: var(--color-text-primary);
     font-family: var(--font-family-base);
-    padding: 2rem 1.5rem 4rem;
+    padding: 2.5rem 1.5rem 4rem;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2rem;
+    gap: 1.75rem;
   }
 
-  h1 {
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: center;
+  }
+
+  .wordmark {
     font-family: var(--font-retro);
+    font-size: 0.85rem;
+    letter-spacing: 0.3em;
     color: var(--color-neon-pink);
     text-shadow:
-      0 0 10px var(--color-neon-pink),
-      0 0 24px var(--color-neon-purple);
-    letter-spacing: 0.08em;
+      0 0 8px var(--color-neon-pink),
+      0 0 18px var(--color-neon-purple);
+  }
+
+  .quote {
     margin: 0;
+    max-width: 40rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  .priorities {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    width: 100%;
+    max-width: 48rem;
+  }
+
+  @media (max-width: 640px) {
+    .priorities {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .panel {
+    position: relative;
+    width: 100%;
+    max-width: 48rem;
+    box-sizing: border-box;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--panel-accent, var(--color-neon-blue));
+    border-radius: 0.35rem;
+    padding: 1.1rem 1.25rem;
+    box-shadow: 0 0 14px color-mix(in srgb, var(--panel-accent, var(--color-neon-blue)) 30%, transparent);
+  }
+
+  .panel::before,
+  .panel::after {
+    content: "";
+    position: absolute;
+    width: 0.8rem;
+    height: 0.8rem;
+    pointer-events: none;
+  }
+
+  .panel::before {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid var(--panel-accent, var(--color-neon-blue));
+    border-left: 2px solid var(--panel-accent, var(--color-neon-blue));
+  }
+
+  .panel::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 2px solid var(--panel-accent, var(--color-neon-blue));
+    border-right: 2px solid var(--panel-accent, var(--color-neon-blue));
+  }
+
+  .panel h2 {
+    margin: 0 0 0.75rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--panel-accent, var(--color-neon-blue));
+  }
+
+  .priority-box {
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .panel input[type="text"],
+  .reflection {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.55rem 0.75rem;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-bg-elevated);
+    border-radius: 0.3rem;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-base);
+  }
+
+  .panel input[type="text"]:focus,
+  .reflection:focus {
+    outline: none;
+    border-color: var(--panel-accent, var(--color-neon-cyan));
+    box-shadow: 0 0 8px var(--panel-accent, var(--color-neon-cyan));
+  }
+
+  .habit-list {
+    list-style: none;
+    margin: 0 0 0.75rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
   }
 
   .add-habit-form {
     display: flex;
     gap: 0.5rem;
-    width: 100%;
-    max-width: 28rem;
   }
 
   .add-habit-form input {
     flex: 1;
     min-width: 0;
-    padding: 0.6rem 0.85rem;
-    background: var(--color-bg-surface);
-    border: 1px solid var(--color-neon-blue);
-    border-radius: 0.4rem;
-    color: var(--color-text-primary);
-    font-family: var(--font-family-base);
-  }
-
-  .add-habit-form input:focus {
-    outline: none;
-    border-color: var(--color-neon-cyan);
-    box-shadow: 0 0 8px var(--color-neon-cyan);
   }
 
   .add-habit-form button {
-    padding: 0.6rem 1.1rem;
+    flex: none;
+    padding: 0.55rem 1rem;
     background: var(--color-neon-purple);
     color: var(--color-text-inverse);
     border: none;
-    border-radius: 0.4rem;
+    border-radius: 0.3rem;
     font-family: var(--font-family-base);
     font-weight: 600;
     cursor: pointer;
@@ -141,15 +328,40 @@
     background: var(--color-neon-pink);
   }
 
-  .habit-list {
+  .gratitude-list {
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    width: 100%;
-    max-width: 28rem;
+    gap: 0.5rem;
+  }
+
+  .gratitude-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .gratitude-index {
+    flex: none;
+    width: 1.4rem;
+    color: var(--panel-accent, var(--color-neon-pink));
+    font-weight: 700;
+    text-align: right;
+  }
+
+  .reflection {
+    resize: vertical;
+    line-height: 1.8rem;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(1.8rem - 1px),
+      color-mix(in srgb, var(--panel-accent, var(--color-neon-yellow)) 30%, transparent) calc(1.8rem - 1px),
+      color-mix(in srgb, var(--panel-accent, var(--color-neon-yellow)) 30%, transparent) 1.8rem
+    );
+    background-attachment: local;
   }
 
   .muted {

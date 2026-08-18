@@ -13,9 +13,20 @@ export interface Entry {
   completed: boolean;
 }
 
+export interface DailyLog {
+  id: number;
+  date: string;
+  spiritualWin: string;
+  mentalWin: string;
+  physicalWin: string;
+  gratitude: string[];
+  reflection: string;
+}
+
 export class KaizenDatabase extends Dexie {
   habits!: EntityTable<Habit, "id">;
   entries!: EntityTable<Entry, "id">;
+  dailyLogs!: EntityTable<DailyLog, "id">;
 
   constructor() {
     super("kaizen-80");
@@ -23,6 +34,12 @@ export class KaizenDatabase extends Dexie {
     this.version(1).stores({
       habits: "++id, name, createdAt",
       entries: "++id, habitId, date, completed"
+    });
+
+    this.version(2).stores({
+      habits: "++id, name, createdAt",
+      entries: "++id, habitId, date, completed",
+      dailyLogs: "++id, &date"
     });
   }
 }
