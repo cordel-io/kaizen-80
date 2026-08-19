@@ -41,6 +41,7 @@
   }
 
   .habit-checkbox {
+    position: relative;
     appearance: none;
     -webkit-appearance: none;
     margin: 0;
@@ -56,6 +57,36 @@
     transition:
       border-color 0.15s ease,
       box-shadow 0.15s ease;
+  }
+
+  .habit-checkbox:checked::after {
+    content: "";
+    position: absolute;
+    inset: -1.1rem;
+    border-radius: 50%;
+    background: repeating-conic-gradient(
+      from 0deg,
+      var(--color-neon-pink) 0deg 4deg,
+      var(--color-neon-cyan) 4deg 6deg,
+      transparent 6deg 24deg
+    );
+    mix-blend-mode: screen;
+    pointer-events: none;
+    animation: speed-lines 320ms ease-out;
+  }
+
+  @keyframes speed-lines {
+    0% {
+      transform: scale(0.15);
+      opacity: 1;
+    }
+    60% {
+      opacity: 0.9;
+    }
+    100% {
+      transform: scale(1.6);
+      opacity: 0;
+    }
   }
 
   .habit-checkbox:hover {

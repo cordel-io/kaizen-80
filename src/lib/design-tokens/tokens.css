@@ -27,5 +27,6 @@
   /* Typography */
   --font-mono: "Share Tech Mono", "JetBrains Mono", "Courier New", monospace;
   --font-retro: "VT323", "Press Start 2P", var(--font-mono);
+  --font-display: "Orbitron", var(--font-retro);
   --font-family-base: var(--font-mono);
 }

@@ -243,6 +243,7 @@
 
 <style>
   .page {
+    position: relative;
     min-height: 100vh;
     box-sizing: border-box;
     background: transparent;
@@ -255,6 +256,26 @@
     gap: 1.75rem;
   }
 
+  /* Thin diagonal accent stripe across the top-right corner, like an
+     anime poster banner tag. */
+  .page::before {
+    content: "";
+    position: fixed;
+    top: 30px;
+    right: -72px;
+    width: 260px;
+    height: 5px;
+    background: linear-gradient(90deg, var(--color-neon-pink), var(--color-neon-cyan));
+    transform: rotate(45deg);
+    transform-origin: center;
+    box-shadow:
+      0 0 8px rgba(255, 46, 196, 0.55),
+      0 0 8px rgba(0, 240, 255, 0.55);
+    opacity: 0.85;
+    pointer-events: none;
+    z-index: 3;
+  }
+
   .masthead {
     display: flex;
     flex-direction: column;
@@ -264,9 +285,10 @@
   }
 
   .wordmark {
-    font-family: var(--font-retro);
-    font-size: 0.85rem;
-    letter-spacing: 0.3em;
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 1.6rem;
+    letter-spacing: 0.18em;
     color: var(--color-neon-pink);
     text-shadow:
       -1.5px 0 0 rgba(255, 46, 196, 0.8),
@@ -413,6 +435,9 @@
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
+    background-color: var(--color-bg-surface);
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.09) 1px, transparent 1.3px);
+    background-size: 6px 6px;
   }
 
   .panel input[type="text"],
@@ -432,6 +457,16 @@
     outline: none;
     border-color: var(--panel-accent, var(--color-neon-cyan));
     box-shadow: 0 0 8px var(--panel-accent, var(--color-neon-cyan));
+  }
+
+  .checklist-panel {
+    clip-path: polygon(3% 0%, 97% 0%, 100% 100%, 0% 100%);
+    border-width: 2px;
+  }
+
+  .checklist-panel::before,
+  .checklist-panel::after {
+    display: none;
   }
 
   .habit-list {
