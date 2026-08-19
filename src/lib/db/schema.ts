@@ -21,6 +21,7 @@ export interface DailyLog {
   physicalWin: string;
   gratitude: string[];
   reflection: string;
+  updatedAt?: string;
 }
 
 export class KaizenDatabase extends Dexie {
@@ -33,13 +34,13 @@ export class KaizenDatabase extends Dexie {
 
     this.version(1).stores({
       habits: "++id, name, createdAt",
-      entries: "++id, habitId, date, completed"
+      entries: "++id, habitId, date, completed",
     });
 
     this.version(2).stores({
       habits: "++id, name, createdAt",
       entries: "++id, habitId, date, completed",
-      dailyLogs: "++id, &date"
+      dailyLogs: "++id, &date",
     });
   }
 }

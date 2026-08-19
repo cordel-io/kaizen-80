@@ -7,6 +7,7 @@ export type DailyLogDraft = {
   physicalWin: string;
   gratitude: string[];
   reflection: string;
+  updatedAt?: string;
 };
 
 function emptyDraft(): DailyLogDraft {
@@ -15,7 +16,8 @@ function emptyDraft(): DailyLogDraft {
     mentalWin: "",
     physicalWin: "",
     gratitude: ["", "", ""],
-    reflection: ""
+    reflection: "",
+    updatedAt: undefined,
   };
 }
 
@@ -30,7 +32,8 @@ export async function getDailyLog(dateKey: string): Promise<DailyLogDraft> {
         mentalWin: existing.mentalWin,
         physicalWin: existing.physicalWin,
         gratitude: existing.gratitude,
-        reflection: existing.reflection
+        reflection: existing.reflection,
+        updatedAt: existing.updatedAt,
       }
     : emptyDraft();
 
@@ -40,14 +43,20 @@ export async function getDailyLog(dateKey: string): Promise<DailyLogDraft> {
 
 export async function saveDailyLog(
   dateKey: string,
-  patch: Partial<DailyLogDraft>
+  patch: Partial<DailyLogDraft>,
 ): Promise<DailyLogDraft> {
   const existing = await db.dailyLogs.where("date").equals(dateKey).first();
+  const updatedAt = new Date().toISOString();
 
   if (existing) {
-    await db.dailyLogs.update(existing.id, patch);
+    await db.dailyLogs.update(existing.id, { ...patch, updatedAt });
   } else {
-    await db.dailyLogs.add({ date: dateKey, ...emptyDraft(), ...patch });
+    await db.dailyLogs.add({
+      date: dateKey,
+      ...emptyDraft(),
+      ...patch,
+      updatedAt,
+    });
   }
 
   return getDailyLog(dateKey);

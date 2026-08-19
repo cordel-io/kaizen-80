@@ -7,6 +7,6 @@
 <style>
   :global(body) {
     margin: 0;
-    background: var(--color-bg-void);
+    background: var(--color-bg);
   }
 </style>

@@ -12,16 +12,18 @@
   $: improvement = formatStreakPercentage(calculateStreakMultiplier(streak));
 </script>
 
-<label class="habit-row" class:completed={completedToday}>
-  <input
-    type="checkbox"
-    class="habit-checkbox"
-    checked={completedToday}
-    on:change={() => dispatch("toggle")}
-  />
+<button
+  type="button"
+  class="habit-row"
+  class:completed={completedToday}
+  role="checkbox"
+  aria-checked={completedToday}
+  on:click={() => dispatch("toggle")}
+>
+  <span class="bracket-checkbox" aria-hidden="true">{completedToday ? "[x]" : "[ ]"}</span>
   <span class="habit-name">{name}</span>
   <span class="habit-streak">{streak} {streak === 1 ? "day" : "days"} · {improvement}</span>
-</label>
+</button>
 
 <style>
   .habit-row {
@@ -30,8 +32,11 @@
     gap: 0.75rem;
     width: 100%;
     box-sizing: border-box;
-    padding: 0.65rem 0.75rem;
-    border-radius: 0.35rem;
+    padding: 0.5rem 0.6rem;
+    border: none;
+    background: none;
+    font-family: var(--font-mono);
+    text-align: left;
     cursor: pointer;
     transition: background 0.15s ease;
   }
@@ -40,69 +45,48 @@
     background: var(--color-bg-elevated);
   }
 
-  .habit-checkbox {
-    appearance: none;
-    -webkit-appearance: none;
-    margin: 0;
+  .bracket-checkbox {
     flex: none;
-    width: 1.15rem;
-    height: 1.15rem;
-    display: grid;
-    place-content: center;
-    border: 2px solid var(--color-neon-purple);
-    border-radius: 0.25rem;
-    background: transparent;
-    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
     transition:
-      border-color 0.15s ease,
-      box-shadow 0.15s ease;
+      color 0.15s ease,
+      text-shadow 0.15s ease;
   }
 
-  .habit-checkbox:hover {
-    border-color: var(--color-neon-cyan);
-    box-shadow: 0 0 8px var(--color-neon-cyan);
+  .habit-row:hover .bracket-checkbox {
+    color: var(--color-glow-pink);
   }
 
-  .habit-checkbox::before {
-    content: "";
-    width: 0.6rem;
-    height: 0.6rem;
-    transform: scale(0);
-    transition: transform 0.1s ease;
-    box-shadow: inset 1rem 1rem var(--color-neon-green);
-    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 45% 62%);
-  }
-
-  .habit-checkbox:checked {
-    border-color: var(--color-neon-green);
-    box-shadow: 0 0 10px var(--color-neon-green);
-  }
-
-  .habit-checkbox:checked::before {
-    transform: scale(1);
+  .habit-row.completed .bracket-checkbox {
+    color: var(--color-glow-pink);
+    text-shadow:
+      0 0 6px var(--color-glow-pink),
+      0 0 14px var(--color-glow-pink);
   }
 
   .habit-name {
     flex: 1;
     min-width: 0;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     color: var(--color-text-primary);
   }
 
   .habit-row.completed .habit-name {
     color: var(--color-text-muted);
     text-decoration: line-through;
-    text-decoration-color: var(--color-neon-green);
+    text-decoration-color: var(--color-glow-pink);
   }
 
   .habit-streak {
     flex: none;
-    font-size: 0.75rem;
-    color: var(--color-neon-cyan);
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
     white-space: nowrap;
   }
 
   .habit-row.completed .habit-streak {
-    color: var(--color-neon-green);
+    color: var(--color-glow-pink);
   }
 </style>
