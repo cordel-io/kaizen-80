@@ -41,7 +41,6 @@
   }
 
   .habit-checkbox {
-    position: relative;
     appearance: none;
     -webkit-appearance: none;
     margin: 0;
@@ -59,36 +58,6 @@
       box-shadow 0.15s ease;
   }
 
-  .habit-checkbox:checked::after {
-    content: "";
-    position: absolute;
-    inset: -1.1rem;
-    border-radius: 50%;
-    background: repeating-conic-gradient(
-      from 0deg,
-      var(--color-neon-pink) 0deg 4deg,
-      var(--color-neon-cyan) 4deg 6deg,
-      transparent 6deg 24deg
-    );
-    mix-blend-mode: screen;
-    pointer-events: none;
-    animation: speed-lines 320ms ease-out;
-  }
-
-  @keyframes speed-lines {
-    0% {
-      transform: scale(0.15);
-      opacity: 1;
-    }
-    60% {
-      opacity: 0.9;
-    }
-    100% {
-      transform: scale(1.6);
-      opacity: 0;
-    }
-  }
-
   .habit-checkbox:hover {
     border-color: var(--color-neon-cyan);
     box-shadow: 0 0 8px var(--color-neon-cyan);
@@ -100,13 +69,13 @@
     height: 0.6rem;
     transform: scale(0);
     transition: transform 0.1s ease;
-    box-shadow: inset 1rem 1rem var(--color-neon-pink);
+    box-shadow: inset 1rem 1rem var(--color-neon-green);
     clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 45% 62%);
   }
 
   .habit-checkbox:checked {
-    border-color: var(--color-neon-pink);
-    box-shadow: 0 0 10px var(--color-neon-pink);
+    border-color: var(--color-neon-green);
+    box-shadow: 0 0 10px var(--color-neon-green);
   }
 
   .habit-checkbox:checked::before {
@@ -123,7 +92,7 @@
   .habit-row.completed .habit-name {
     color: var(--color-text-muted);
     text-decoration: line-through;
-    text-decoration-color: var(--color-neon-pink);
+    text-decoration-color: var(--color-neon-green);
   }
 
   .habit-streak {
@@ -134,6 +103,6 @@
   }
 
   .habit-row.completed .habit-streak {
-    color: var(--color-neon-pink);
+    color: var(--color-neon-green);
   }
 </style>

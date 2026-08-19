@@ -17,10 +17,10 @@
   const todayKey = toDateKey(new Date());
   const quote = getQuoteOfTheDay(todayKey);
 
-  const priorities: { key: PriorityKey; label: string; accent: string; jp: string }[] = [
-    { key: "spiritualWin", label: "Spiritual Win", accent: "var(--color-neon-purple)", jp: "精神" },
-    { key: "mentalWin", label: "Mental Win", accent: "var(--color-neon-cyan)", jp: "心" },
-    { key: "physicalWin", label: "Physical Win", accent: "var(--color-neon-pink)", jp: "体" }
+  const priorities: { key: PriorityKey; label: string; accent: string }[] = [
+    { key: "spiritualWin", label: "Spiritual Win", accent: "var(--color-neon-purple)" },
+    { key: "mentalWin", label: "Mental Win", accent: "var(--color-neon-cyan)" },
+    { key: "physicalWin", label: "Physical Win", accent: "var(--color-neon-green)" }
   ];
 
   let priorityValues: Record<PriorityKey, string> = {
@@ -172,7 +172,7 @@
   <section class="priorities">
     {#each priorities as priority (priority.key)}
       <div class="panel priority-box" style="--panel-accent: {priority.accent}">
-        <h2><span class="jp-tag">{priority.jp}</span>{priority.label}</h2>
+        <h2>{priority.label}</h2>
         <input
           type="text"
           placeholder="Today's win..."
@@ -184,9 +184,7 @@
   </section>
 
   <section class="panel checklist-panel" style="--panel-accent: var(--color-neon-blue)">
-    <h2>
-      <span class="jp-tag">今日</span>{isToday ? "Today's Checklist" : `${dateLabel}'s Checklist`}
-    </h2>
+    <h2>{isToday ? "Today's Checklist" : `${dateLabel}'s Checklist`}</h2>
 
     {#if loading}
       <p class="muted">Loading...</p>
@@ -214,7 +212,7 @@
   </section>
 
   <section class="panel gratitude-panel" style="--panel-accent: var(--color-neon-pink)">
-    <h2><span class="jp-tag">感謝</span>I am grateful for...</h2>
+    <h2>I am grateful for...</h2>
     <ol class="gratitude-list">
       {#each gratitudeItems as _, i}
         <li>
@@ -229,8 +227,8 @@
     </ol>
   </section>
 
-  <section class="panel reflection-panel" style="--panel-accent: var(--color-neon-purple)">
-    <h2><span class="jp-tag">内省</span>Daily Reflection</h2>
+  <section class="panel reflection-panel" style="--panel-accent: var(--color-neon-yellow)">
+    <h2>Daily Reflection</h2>
     <textarea
       class="reflection"
       rows="6"
@@ -243,10 +241,17 @@
 
 <style>
   .page {
-    position: relative;
     min-height: 100vh;
     box-sizing: border-box;
-    background: transparent;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.015) 0px,
+        rgba(255, 255, 255, 0.015) 1px,
+        transparent 1px,
+        transparent 3px
+      ),
+      var(--color-bg-primary);
     color: var(--color-text-primary);
     font-family: var(--font-family-base);
     padding: 2.5rem 1.5rem 4rem;
@@ -254,26 +259,6 @@
     flex-direction: column;
     align-items: center;
     gap: 1.75rem;
-  }
-
-  /* Thin diagonal accent stripe across the top-right corner, like an
-     anime poster banner tag. */
-  .page::before {
-    content: "";
-    position: fixed;
-    top: 30px;
-    right: -72px;
-    width: 260px;
-    height: 5px;
-    background: linear-gradient(90deg, var(--color-neon-pink), var(--color-neon-cyan));
-    transform: rotate(45deg);
-    transform-origin: center;
-    box-shadow:
-      0 0 8px rgba(255, 46, 196, 0.55),
-      0 0 8px rgba(0, 240, 255, 0.55);
-    opacity: 0.85;
-    pointer-events: none;
-    z-index: 3;
   }
 
   .masthead {
@@ -285,14 +270,11 @@
   }
 
   .wordmark {
-    font-family: var(--font-display);
-    font-weight: 900;
-    font-size: 1.6rem;
-    letter-spacing: 0.18em;
+    font-family: var(--font-retro);
+    font-size: 0.85rem;
+    letter-spacing: 0.3em;
     color: var(--color-neon-pink);
     text-shadow:
-      -1.5px 0 0 rgba(255, 46, 196, 0.8),
-      1.5px 0 0 rgba(0, 240, 255, 0.8),
       0 0 8px var(--color-neon-pink),
       0 0 18px var(--color-neon-purple);
   }
@@ -380,11 +362,7 @@
     border: 1px solid var(--panel-accent, var(--color-neon-blue));
     border-radius: 0.35rem;
     padding: 1.1rem 1.25rem;
-    box-shadow:
-      0 0 6px color-mix(in srgb, var(--panel-accent, var(--color-neon-blue)) 65%, transparent),
-      0 0 24px color-mix(in srgb, var(--panel-accent, var(--color-neon-blue)) 45%, transparent),
-      0 0 56px color-mix(in srgb, var(--panel-accent, var(--color-neon-blue)) 28%, transparent),
-      inset 0 0 20px color-mix(in srgb, var(--panel-accent, var(--color-neon-blue)) 8%, transparent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--panel-accent, var(--color-neon-blue)) 30%, transparent);
   }
 
   .panel::before,
@@ -412,22 +390,10 @@
 
   .panel h2 {
     margin: 0 0 0.75rem;
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
     font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--panel-accent, var(--color-neon-blue));
-  }
-
-  .jp-tag {
-    font-family: var(--font-retro);
-    font-size: 1rem;
-    text-transform: none;
-    letter-spacing: 0;
-    opacity: 0.8;
-    text-shadow: 0 0 6px currentColor;
   }
 
   .priority-box {
@@ -435,9 +401,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
-    background-color: var(--color-bg-surface);
-    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.09) 1px, transparent 1.3px);
-    background-size: 6px 6px;
   }
 
   .panel input[type="text"],
@@ -457,16 +420,6 @@
     outline: none;
     border-color: var(--panel-accent, var(--color-neon-cyan));
     box-shadow: 0 0 8px var(--panel-accent, var(--color-neon-cyan));
-  }
-
-  .checklist-panel {
-    clip-path: polygon(3% 0%, 97% 0%, 100% 100%, 0% 100%);
-    border-width: 2px;
-  }
-
-  .checklist-panel::before,
-  .checklist-panel::after {
-    display: none;
   }
 
   .habit-list {
@@ -534,8 +487,8 @@
       to bottom,
       transparent 0,
       transparent calc(1.8rem - 1px),
-      color-mix(in srgb, var(--panel-accent, var(--color-neon-purple)) 30%, transparent) calc(1.8rem - 1px),
-      color-mix(in srgb, var(--panel-accent, var(--color-neon-purple)) 30%, transparent) 1.8rem
+      color-mix(in srgb, var(--panel-accent, var(--color-neon-yellow)) 30%, transparent) calc(1.8rem - 1px),
+      color-mix(in srgb, var(--panel-accent, var(--color-neon-yellow)) 30%, transparent) 1.8rem
     );
     background-attachment: local;
   }
