@@ -1,5 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { page } from "$app/stores";
+  import { goto } from "$app/navigation";
+  import { browser } from "$app/environment";
   import { habits, getHabits, addHabit } from "$lib/stores/habits";
   import { getDailyLog, saveDailyLog, type DailyLogDraft } from "$lib/stores/daily-log";
   import { db } from "$lib/db/schema";
@@ -30,31 +33,72 @@
 
   let newHabitName = "";
   let streaks: Record<number, number> = {};
-  let completedToday: Record<number, boolean> = {};
+  let completedForDate: Record<number, boolean> = {};
   let loading = true;
+  let mounted = false;
+
+  // The URL's ?date= param drives which day is being viewed/edited. Future
+  // dates are clamped back to today — there's no sensible "future" entry.
+  // Reading searchParams is disallowed on a prerendered page, so this is
+  // guarded to only ever evaluate client-side (the app is fully client-
+  // rendered anyway; the prerendered shell is just the initial "today" view).
+  $: requestedDateKey = browser ? $page.url.searchParams.get("date") || todayKey : todayKey;
+  $: viewDateKey = requestedDateKey > todayKey ? todayKey : requestedDateKey;
+  $: isToday = viewDateKey === todayKey;
+  $: dateLabel = formatDisplayDate(viewDateKey);
+
+  function dateKeyToDate(dateKey: string): Date {
+    const [year, month, day] = dateKey.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  function shiftDateKey(dateKey: string, deltaDays: number): string {
+    const date = dateKeyToDate(dateKey);
+    date.setDate(date.getDate() + deltaDays);
+    return toDateKey(date);
+  }
+
+  function formatDisplayDate(dateKey: string): string {
+    if (dateKey === todayKey) return "Today";
+    return dateKeyToDate(dateKey).toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "short",
+      day: "numeric"
+    });
+  }
+
+  function navigateToDate(dateKey: string) {
+    const url = new URL($page.url);
+    if (dateKey === todayKey) {
+      url.searchParams.delete("date");
+    } else {
+      url.searchParams.set("date", dateKey);
+    }
+    void goto(url, { replaceState: false, keepFocus: true, noScroll: true });
+  }
 
   // No freeze-count tracking exists on the Habit record yet, so streaks are
   // calculated with zero freezes available until that's added to the schema.
-  async function refreshHabitStats() {
+  async function refreshHabitStats(dateKey: string) {
     const all = await getHabits();
     const nextStreaks: Record<number, number> = {};
-    const nextCompletedToday: Record<number, boolean> = {};
+    const nextCompletedForDate: Record<number, boolean> = {};
 
     for (const habit of all) {
       const entries = await db.entries.where({ habitId: habit.id }).sortBy("date");
       nextStreaks[habit.id] = calculateStreak(entries, 0);
-      nextCompletedToday[habit.id] = entries.some(
-        (entry) => entry.date === todayKey && entry.completed
+      nextCompletedForDate[habit.id] = entries.some(
+        (entry) => entry.date === dateKey && entry.completed
       );
     }
 
     streaks = nextStreaks;
-    completedToday = nextCompletedToday;
+    completedForDate = nextCompletedForDate;
     loading = false;
   }
 
-  async function loadDailyLog() {
-    const log = await getDailyLog(todayKey);
+  async function loadDailyLog(dateKey: string) {
+    const log = await getDailyLog(dateKey);
     priorityValues = {
       spiritualWin: log.spiritualWin,
       mentalWin: log.mentalWin,
@@ -65,12 +109,12 @@
   }
 
   function persistField(patch: Partial<DailyLogDraft>) {
-    void saveDailyLog(todayKey, patch);
+    void saveDailyLog(viewDateKey, patch);
   }
 
   async function handleToggle(habitId: number) {
-    await toggleEntry(habitId, todayKey);
-    await refreshHabitStats();
+    await toggleEntry(habitId, viewDateKey);
+    await refreshHabitStats(viewDateKey);
   }
 
   async function handleAddHabit() {
@@ -78,12 +122,18 @@
     if (!name) return;
     await addHabit(name);
     newHabitName = "";
-    await refreshHabitStats();
+    await refreshHabitStats(viewDateKey);
+  }
+
+  // Gated on `mounted` so this never touches IndexedDB during SSR/prerender,
+  // and re-runs whenever the viewed date changes (nav buttons, back/forward).
+  $: if (mounted) {
+    void refreshHabitStats(viewDateKey);
+    void loadDailyLog(viewDateKey);
   }
 
   onMount(() => {
-    void refreshHabitStats();
-    void loadDailyLog();
+    mounted = true;
   });
 </script>
 
@@ -91,6 +141,32 @@
   <header class="masthead">
     <span class="wordmark">KAIZEN-80</span>
     <p class="quote">{quote}</p>
+
+    <nav class="date-nav">
+      <button
+        type="button"
+        class="date-nav-btn"
+        aria-label="Previous day"
+        on:click={() => navigateToDate(shiftDateKey(viewDateKey, -1))}
+      >
+        ‹
+      </button>
+      <span class="date-label">{dateLabel}</span>
+      <button
+        type="button"
+        class="date-nav-btn"
+        aria-label="Next day"
+        disabled={isToday}
+        on:click={() => navigateToDate(shiftDateKey(viewDateKey, 1))}
+      >
+        ›
+      </button>
+      {#if !isToday}
+        <button type="button" class="date-today-btn" on:click={() => navigateToDate(todayKey)}>
+          Today
+        </button>
+      {/if}
+    </nav>
   </header>
 
   <section class="priorities">
@@ -108,7 +184,7 @@
   </section>
 
   <section class="panel checklist-panel" style="--panel-accent: var(--color-neon-blue)">
-    <h2>Today's Checklist</h2>
+    <h2>{isToday ? "Today's Checklist" : `${dateLabel}'s Checklist`}</h2>
 
     {#if loading}
       <p class="muted">Loading...</p>
@@ -121,7 +197,7 @@
             <HabitCard
               name={habit.name}
               streak={streaks[habit.id] ?? 0}
-              completedToday={completedToday[habit.id] ?? false}
+              completedToday={completedForDate[habit.id] ?? false}
               on:toggle={() => handleToggle(habit.id)}
             />
           </li>
@@ -208,6 +284,59 @@
     max-width: 40rem;
     color: var(--color-text-muted);
     font-style: italic;
+  }
+
+  .date-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.25rem;
+  }
+
+  .date-nav-btn,
+  .date-today-btn {
+    font-family: var(--font-family-base);
+    background: transparent;
+    border: 1px solid var(--color-neon-blue);
+    border-radius: 0.3rem;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      opacity 0.15s ease;
+  }
+
+  .date-nav-btn {
+    width: 1.9rem;
+    height: 1.9rem;
+    line-height: 1;
+    font-size: 1.1rem;
+  }
+
+  .date-nav-btn:hover:not(:disabled),
+  .date-today-btn:hover {
+    border-color: var(--color-neon-cyan);
+    box-shadow: 0 0 8px var(--color-neon-cyan);
+  }
+
+  .date-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  .date-label {
+    min-width: 9rem;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--color-neon-cyan);
+  }
+
+  .date-today-btn {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
   .priorities {
