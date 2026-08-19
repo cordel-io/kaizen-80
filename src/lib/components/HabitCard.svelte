@@ -69,13 +69,13 @@
     height: 0.6rem;
     transform: scale(0);
     transition: transform 0.1s ease;
-    box-shadow: inset 1rem 1rem var(--color-neon-green);
+    box-shadow: inset 1rem 1rem var(--color-neon-pink);
     clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 45% 62%);
   }
 
   .habit-checkbox:checked {
-    border-color: var(--color-neon-green);
-    box-shadow: 0 0 10px var(--color-neon-green);
+    border-color: var(--color-neon-pink);
+    box-shadow: 0 0 10px var(--color-neon-pink);
   }
 
   .habit-checkbox:checked::before {
@@ -92,7 +92,7 @@
   .habit-row.completed .habit-name {
     color: var(--color-text-muted);
     text-decoration: line-through;
-    text-decoration-color: var(--color-neon-green);
+    text-decoration-color: var(--color-neon-pink);
   }
 
   .habit-streak {
@@ -103,6 +103,6 @@
   }
 
   .habit-row.completed .habit-streak {
-    color: var(--color-neon-green);
+    color: var(--color-neon-pink);
   }
 </style>
