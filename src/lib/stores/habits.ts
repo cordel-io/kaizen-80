@@ -18,3 +18,15 @@ export async function addHabit(name: string): Promise<Habit> {
   await getHabits();
   return habit;
 }
+
+export async function updateHabit(id: number, newName: string): Promise<Habit> {
+  await db.habits.update(id, { name: newName });
+  const habit = (await db.habits.get(id)) as Habit;
+  await getHabits();
+  return habit;
+}
+
+export async function deleteHabit(id: number): Promise<void> {
+  await db.habits.delete(id);
+  await getHabits();
+}
