@@ -24,10 +24,18 @@ export interface DailyLog {
   updatedAt?: string;
 }
 
+export interface ChecklistItem {
+  id: number;
+  date: string;
+  text: string;
+  completed: boolean;
+}
+
 export class KaizenDatabase extends Dexie {
   habits!: EntityTable<Habit, "id">;
   entries!: EntityTable<Entry, "id">;
   dailyLogs!: EntityTable<DailyLog, "id">;
+  checklistItems!: EntityTable<ChecklistItem, "id">;
 
   constructor() {
     super("kaizen-80");
@@ -41,6 +49,13 @@ export class KaizenDatabase extends Dexie {
       habits: "++id, name, createdAt",
       entries: "++id, habitId, date, completed",
       dailyLogs: "++id, &date",
+    });
+
+    this.version(3).stores({
+      habits: "++id, name, createdAt",
+      entries: "++id, habitId, date, completed",
+      dailyLogs: "++id, &date",
+      checklistItems: "++id, date",
     });
   }
 }
