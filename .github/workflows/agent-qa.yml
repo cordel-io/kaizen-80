@@ -165,11 +165,15 @@ jobs:
 
           if [ "$NEXT" -le "$RETRY_BUDGET" ]; then
             OLD_LABEL="qa-retry:$CURRENT"
+            NEW_LABEL="qa-retry:$NEXT"
+
+            gh label create "$NEW_LABEL" --repo ${{ github.repository }} --color "D93F0B" --description "QA retry attempt $NEXT" 2>/dev/null || true
+
             gh issue edit ${{ github.event.inputs.issue_number }} --remove-label "$OLD_LABEL" 2>/dev/null || true
-            gh issue edit ${{ github.event.inputs.issue_number }} \
-              --add-label "qa-retry:$NEXT" \
-              --add-label "agent:build" \
-              --remove-label "status:qa-review"
+            gh issue edit ${{ github.event.inputs.issue_number }} --add-label "$NEW_LABEL"
+            gh issue edit ${{ github.event.inputs.issue_number }} --add-label "agent:build"
+            gh issue edit ${{ github.event.inputs.issue_number }} --remove-label "status:qa-review"
+
             gh issue comment ${{ github.event.inputs.issue_number }} \
               --body "🔁 QA failed (attempt $CURRENT). Retrying — attempt $NEXT of $RETRY_BUDGET."
           else
