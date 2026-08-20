@@ -29,6 +29,7 @@ export interface ChecklistItem {
   date: string;
   text: string;
   completed: boolean;
+  createdAt: string;
 }
 
 export class KaizenDatabase extends Dexie {
@@ -55,7 +56,7 @@ export class KaizenDatabase extends Dexie {
       habits: "++id, name, createdAt",
       entries: "++id, habitId, date, completed",
       dailyLogs: "++id, &date",
-      checklistItems: "++id, date",
+      checklistItems: "++id, date, completed",
     });
   }
 }

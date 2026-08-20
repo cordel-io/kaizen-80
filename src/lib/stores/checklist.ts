@@ -1,30 +1,44 @@
+import { writable, type Writable } from "svelte/store";
 import { db, type ChecklistItem } from "../db/schema";
 
+export const checklistItems: Writable<ChecklistItem[]> = writable([]);
+
+export async function getChecklistForDate(
+  dateKey: string,
+): Promise<ChecklistItem[]> {
+  const items = await db.checklistItems.where({ date: dateKey }).sortBy("id");
+  checklistItems.set(items);
+  return items;
+}
+
 export async function createChecklistItem(
-  date: string,
+  dateKey: string,
   text: string,
 ): Promise<ChecklistItem> {
   const id = await db.checklistItems.add({
-    date,
+    date: dateKey,
     text,
     completed: false,
+    createdAt: new Date().toISOString(),
   });
-  return (await db.checklistItems.get(id)) as ChecklistItem;
+  const item = (await db.checklistItems.get(id)) as ChecklistItem;
+  await getChecklistForDate(dateKey);
+  return item;
 }
 
 export async function updateChecklistItem(
   id: number,
-  newText: string,
+  patch: Partial<Pick<ChecklistItem, "text" | "completed">>,
 ): Promise<void> {
-  await db.checklistItems.update(id, { text: newText });
+  const item = await db.checklistItems.get(id);
+  if (!item) return;
+  await db.checklistItems.update(id, patch);
+  await getChecklistForDate(item.date);
 }
 
 export async function deleteChecklistItem(id: number): Promise<void> {
+  const item = await db.checklistItems.get(id);
+  if (!item) return;
   await db.checklistItems.delete(id);
-}
-
-export async function getChecklistForDate(
-  date: string,
-): Promise<ChecklistItem[]> {
-  return db.checklistItems.where("date").equals(date).toArray();
+  await getChecklistForDate(item.date);
 }

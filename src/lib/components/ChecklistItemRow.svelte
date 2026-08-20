@@ -1,11 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher, tick } from "svelte";
-  import { calculateStreakMultiplier } from "$lib/logic/streak-multiplier";
-  import { formatStreakPercentage } from "$lib/logic/format-streak";
 
-  export let name: string;
-  export let streak: number;
-  export let completedToday: boolean;
+  export let text: string;
+  export let completed: boolean;
 
   const dispatch = createEventDispatcher<{
     toggle: void;
@@ -14,13 +11,11 @@
   }>();
 
   let editing = false;
-  let editValue = name;
+  let editValue = text;
   let editInput: HTMLInputElement | null = null;
 
-  $: improvement = formatStreakPercentage(calculateStreakMultiplier(streak));
-
   async function startEdit() {
-    editValue = name;
+    editValue = text;
     editing = true;
     await tick();
     editInput?.focus();
@@ -31,14 +26,14 @@
     if (!editing) return;
     editing = false;
     const trimmed = editValue.trim();
-    if (trimmed && trimmed !== name) {
+    if (trimmed && trimmed !== text) {
       dispatch("rename", trimmed);
     }
   }
 
   function cancelEdit() {
     editing = false;
-    editValue = name;
+    editValue = text;
   }
 
   function handleEditKeydown(event: KeyboardEvent) {
@@ -52,27 +47,27 @@
   }
 
   function handleDelete() {
-    if (confirm(`Delete habit "${name}"?`)) {
+    if (confirm(`Delete task "${text}"?`)) {
       dispatch("delete");
     }
   }
 </script>
 
-<div class="habit-row" class:completed={completedToday}>
+<div class="task-row" class:completed>
   <button
     type="button"
     class="bracket-checkbox"
     role="checkbox"
-    aria-checked={completedToday}
-    aria-label={`Mark "${name}" ${completedToday ? "incomplete" : "complete"}`}
+    aria-checked={completed}
+    aria-label={`Mark "${text}" ${completed ? "incomplete" : "complete"}`}
     on:click={() => dispatch("toggle")}
   >
-    {completedToday ? "[x]" : "[ ]"}
+    {completed ? "[x]" : "[ ]"}
   </button>
 
   {#if editing}
     <input
-      class="habit-edit-input"
+      class="task-edit-input"
       type="text"
       bind:value={editValue}
       bind:this={editInput}
@@ -80,19 +75,17 @@
       on:keydown={handleEditKeydown}
     />
   {:else}
-    <span class="habit-name">{name}</span>
+    <span class="task-text">{text}</span>
   {/if}
 
-  <span class="habit-streak">{streak} {streak === 1 ? "day" : "days"} · {improvement}</span>
-
-  <span class="habit-actions">
-    <button type="button" class="icon-btn" aria-label={`Edit "${name}"`} on:click={startEdit}>
+  <span class="task-actions">
+    <button type="button" class="icon-btn" aria-label={`Edit "${text}"`} on:click={startEdit}>
       ✎
     </button>
     <button
       type="button"
       class="icon-btn icon-btn-delete"
-      aria-label={`Delete "${name}"`}
+      aria-label={`Delete "${text}"`}
       on:click={handleDelete}
     >
       ×
@@ -101,7 +94,7 @@
 </div>
 
 <style>
-  .habit-row {
+  .task-row {
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -112,13 +105,13 @@
     transition: background 0.15s ease;
   }
 
-  .habit-row:hover,
-  .habit-row:focus-within {
+  .task-row:hover,
+  .task-row:focus-within {
     background: var(--color-bg-elevated);
   }
 
-  .habit-row:hover .habit-actions,
-  .habit-row:focus-within .habit-actions {
+  .task-row:hover .task-actions,
+  .task-row:focus-within .task-actions {
     opacity: 1;
   }
 
@@ -141,27 +134,27 @@
     color: var(--color-glow-pink);
   }
 
-  .habit-row.completed .bracket-checkbox {
+  .task-row.completed .bracket-checkbox {
     color: var(--color-glow-pink);
     text-shadow:
       0 0 6px var(--color-glow-pink),
       0 0 14px var(--color-glow-pink);
   }
 
-  .habit-name {
+  .task-text {
     flex: 1;
     min-width: 0;
     font-size: 0.9rem;
     color: var(--color-text-primary);
   }
 
-  .habit-row.completed .habit-name {
+  .task-row.completed .task-text {
     color: var(--color-text-muted);
     text-decoration: line-through;
     text-decoration-color: var(--color-glow-pink);
   }
 
-  .habit-edit-input {
+  .task-edit-input {
     flex: 1;
     min-width: 0;
     box-sizing: border-box;
@@ -173,23 +166,12 @@
     font-size: 0.9rem;
   }
 
-  .habit-edit-input:focus {
+  .task-edit-input:focus {
     outline: none;
     box-shadow: 0 0 6px color-mix(in srgb, var(--color-glow-pink) 35%, transparent);
   }
 
-  .habit-streak {
-    flex: none;
-    font-size: 0.72rem;
-    color: var(--color-text-muted);
-    white-space: nowrap;
-  }
-
-  .habit-row.completed .habit-streak {
-    color: var(--color-glow-pink);
-  }
-
-  .habit-actions {
+  .task-actions {
     flex: none;
     display: flex;
     gap: 0.3rem;

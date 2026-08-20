@@ -3,14 +3,22 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { browser } from "$app/environment";
-  import { habits, getHabits, addHabit } from "$lib/stores/habits";
+  import { habits, getHabits, addHabit, updateHabit, deleteHabit } from "$lib/stores/habits";
   import { getDailyLog, saveDailyLog, type DailyLogDraft } from "$lib/stores/daily-log";
-  import { db } from "$lib/db/schema";
+  import {
+    checklistItems,
+    getChecklistForDate,
+    createChecklistItem,
+    updateChecklistItem,
+    deleteChecklistItem
+  } from "$lib/stores/checklist";
+  import { db, type ChecklistItem } from "$lib/db/schema";
   import { calculateStreak } from "$lib/logic/streaks";
   import { toggleEntry } from "$lib/logic/toggle-entry";
   import { toDateKey } from "$lib/logic/date-key";
   import { getQuoteOfTheDay } from "$lib/content/quotes";
   import HabitCard from "$lib/components/HabitCard.svelte";
+  import ChecklistItemRow from "$lib/components/ChecklistItemRow.svelte";
 
   type PriorityKey = "spiritualWin" | "mentalWin" | "physicalWin";
 
@@ -34,6 +42,7 @@
   let reflectionSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
   let newHabitName = "";
+  let newTaskText = "";
   let streaks: Record<number, number> = {};
   let completedForDate: Record<number, boolean> = {};
   let loading = true;
@@ -158,11 +167,41 @@
     await refreshHabitStats(viewDateKey);
   }
 
+  async function handleRenameHabit(habitId: number, name: string) {
+    await updateHabit(habitId, name);
+    await refreshHabitStats(viewDateKey);
+  }
+
+  async function handleDeleteHabit(habitId: number) {
+    await deleteHabit(habitId);
+    await refreshHabitStats(viewDateKey);
+  }
+
+  async function handleAddTask() {
+    const text = newTaskText.trim();
+    if (!text) return;
+    await createChecklistItem(viewDateKey, text);
+    newTaskText = "";
+  }
+
+  function handleToggleTask(item: ChecklistItem) {
+    void updateChecklistItem(item.id, { completed: !item.completed });
+  }
+
+  function handleRenameTask(id: number, text: string) {
+    void updateChecklistItem(id, { text });
+  }
+
+  function handleDeleteTask(id: number) {
+    void deleteChecklistItem(id);
+  }
+
   // Gated on `mounted` so this never touches IndexedDB during SSR/prerender,
   // and re-runs whenever the viewed date changes (nav buttons, back/forward).
   $: if (mounted) {
     void refreshHabitStats(viewDateKey);
     void loadDailyLog(viewDateKey);
+    void getChecklistForDate(viewDateKey);
   }
 
   onMount(() => {
@@ -283,14 +322,45 @@
                 streak={streaks[habit.id] ?? 0}
                 completedToday={completedForDate[habit.id] ?? false}
                 on:toggle={() => handleToggle(habit.id)}
+                on:rename={(event) => handleRenameHabit(habit.id, event.detail)}
+                on:delete={() => handleDeleteHabit(habit.id)}
               />
             </li>
           {/each}
         </ul>
       {/if}
 
-      <form class="add-habit-form" on:submit|preventDefault={handleAddHabit}>
+      <form class="inline-add-form" on:submit|preventDefault={handleAddHabit}>
         <input type="text" placeholder="new habit..." bind:value={newHabitName} />
+        <button type="submit">add</button>
+      </form>
+    </section>
+
+    <section class="block tasks-block">
+      <h2 class="section-label">
+        <span class="jp-mark">雑務</span><span class="muted">// TODAY'S TASKS</span>
+      </h2>
+
+      {#if $checklistItems.length === 0}
+        <p class="muted">no tasks yet — add one below.</p>
+      {:else}
+        <ul class="habit-list">
+          {#each $checklistItems as item (item.id)}
+            <li>
+              <ChecklistItemRow
+                text={item.text}
+                completed={item.completed}
+                on:toggle={() => handleToggleTask(item)}
+                on:rename={(event) => handleRenameTask(item.id, event.detail)}
+                on:delete={() => handleDeleteTask(item.id)}
+              />
+            </li>
+          {/each}
+        </ul>
+      {/if}
+
+      <form class="inline-add-form" on:submit|preventDefault={handleAddTask}>
+        <input type="text" placeholder="new task..." bind:value={newTaskText} />
         <button type="submit">add</button>
       </form>
     </section>
@@ -708,17 +778,17 @@
     gap: 0.1rem;
   }
 
-  .add-habit-form {
+  .inline-add-form {
     display: flex;
     gap: 0.5rem;
   }
 
-  .add-habit-form input {
+  .inline-add-form input {
     flex: 1;
     min-width: 0;
   }
 
-  .add-habit-form button {
+  .inline-add-form button {
     flex: none;
     padding: 0.5rem 1rem;
     background: transparent;
@@ -734,7 +804,7 @@
       box-shadow 0.15s ease;
   }
 
-  .add-habit-form button:hover {
+  .inline-add-form button:hover {
     background: var(--color-glow-pink);
     color: var(--color-text-inverse);
     box-shadow: 0 0 10px color-mix(in srgb, var(--color-glow-pink) 55%, transparent);

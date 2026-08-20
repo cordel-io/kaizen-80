@@ -27,6 +27,7 @@ export async function updateHabit(id: number, newName: string): Promise<Habit> {
 }
 
 export async function deleteHabit(id: number): Promise<void> {
+  await db.entries.where({ habitId: id }).delete();
   await db.habits.delete(id);
   await getHabits();
 }
