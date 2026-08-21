@@ -31,7 +31,7 @@ describe("checklist store", () => {
   it("edits an item's text", async () => {
     const item = await createChecklistItem("2026-08-17", "Buy groceries");
 
-    await updateChecklistItem(item.id, "Buy more groceries");
+    await updateChecklistItem(item.id, { text: "Buy more groceries" });
 
     const items = await getChecklistForDate("2026-08-17");
     expect(items).toHaveLength(1);

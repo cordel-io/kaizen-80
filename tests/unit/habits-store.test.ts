@@ -59,7 +59,7 @@ describe("habits store", () => {
     expect(current[0]).toMatchObject({ id: keep.id, name: "Meditate" });
   });
 
-  it("deleted habit's past entries remain queryable", async () => {
+  it("deleteHabit cascades to remove the habit's past entries", async () => {
     const habit = await addHabit("Meditate");
     await db.entries.add({ habitId: habit.id, date: "2026-08-18", completed: true } as never);
     await db.entries.add({ habitId: habit.id, date: "2026-08-19", completed: true } as never);
@@ -67,8 +67,7 @@ describe("habits store", () => {
     await deleteHabit(habit.id);
 
     const entries = await db.entries.where({ habitId: habit.id }).sortBy("date");
-    expect(entries).toHaveLength(2);
-    expect(entries.every((entry) => entry.completed)).toBe(true);
+    expect(entries).toHaveLength(0);
   });
 
   it("streak calculation for a renamed habit is unaffected", async () => {
